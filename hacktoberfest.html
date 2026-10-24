@@ -1,0 +1,944 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Hacktoberfest Hack Day DTU · AI Studio & Full-Stack Boilerplate</title>
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace']
+          }
+        }
+      }
+    };
+  </script>
+  <style>
+    body { font-family: 'Inter', sans-serif; }
+    .mono { font-family: 'JetBrains Mono', monospace; }
+    .custom-scroll::-webkit-scrollbar { width: 6px; height: 6px; }
+    .custom-scroll::-webkit-scrollbar-track { background: transparent; }
+    .custom-scroll::-webkit-scrollbar-thumb { background: rgba(100, 116, 139, 0.4); border-radius: 9999px; }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 transition-colors duration-200 min-h-screen flex flex-col" id="app-body">
+
+  <!-- Toast Notification -->
+  <div id="toast-box" class="fixed bottom-5 right-5 z-50 hidden items-center gap-2.5 px-4 py-3 rounded-xl shadow-2xl border border-indigo-500/40 bg-slate-900 text-slate-100 text-xs font-medium transition-all">
+    <span class="h-2 w-2 rounded-full bg-emerald-400"></span>
+    <span id="toast-text">Action completed</span>
+  </div>
+
+  <!-- Optional Live Gemini API Key Modal -->
+  <div id="api-modal" class="fixed inset-0 z-40 hidden items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+    <div id="api-modal-card" class="bg-slate-900 border border-slate-800 rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
+      <div class="flex items-center justify-between">
+        <h3 class="font-bold text-base flex items-center gap-2">
+          <span>🔑</span>
+          <span>AI Engine & Gemini API Key Setup</span>
+        </h3>
+        <button type="button" id="close-modal-btn" onclick="toggleApiModal(false)" class="text-slate-400 hover:text-white text-sm px-2 py-1 rounded">✕</button>
+      </div>
+      <p class="text-xs text-slate-400 leading-relaxed">
+        By default, this studio runs in <strong>Instant Hackathon Simulation Mode</strong> so you can test every feature offline. Paste a free <a href="https://aistudio.google.com/" target="_blank" rel="noopener" class="text-indigo-400 underline">Google AI Studio API Key</a> below if you want live <strong>Gemma 4 / Gemini 2.5 Flash</strong> calls directly from this browser.
+      </p>
+      <div class="space-y-2">
+        <label for="api-key-input" class="text-xs font-semibold text-slate-300 block">GEMINI_API_KEY (Stored locally in browser)</label>
+        <input id="api-key-input" type="password" placeholder="AIzaSy..." class="w-full rounded-lg bg-slate-950 border border-slate-700 px-3 py-2 text-xs mono focus:outline-none focus:border-indigo-500" />
+      </div>
+      <div class="flex items-center justify-end gap-2 pt-2">
+        <button type="button" id="clear-key-btn" onclick="saveApiKey(true)" class="px-3 py-2 rounded-lg text-xs border border-slate-700 hover:bg-slate-800">Use Offline Demo Mode</button>
+        <button type="button" id="save-key-btn" onclick="saveApiKey(false)" class="px-4 py-2 rounded-lg text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white">Save Key</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Top Navigation Header -->
+  <header id="main-header" class="border-b border-slate-800 bg-slate-900/80 backdrop-blur sticky top-0 z-30 px-4 sm:px-6 py-3">
+    <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-3">
+      <!-- Brand Title -->
+      <div class="flex items-center gap-3">
+        <div class="h-9 w-9 rounded-xl bg-gradient-to-br from-indigo-500 to-emerald-500 flex items-center justify-center font-bold text-white shadow-md">
+          HF
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <h1 class="font-bold text-sm sm:text-base tracking-tight">Hacktoberfest Hack Day DTU · AI Studio</h1>
+            <span class="hidden sm:inline-flex items-center gap-1 text-[11px] font-medium px-2.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+              <span class="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+              Ready-to-Run Boilerplate
+            </span>
+          </div>
+          <p class="text-[11px] text-slate-400" id="header-subtitle">Hosted by SKILLOP DTU · Mon, Oct 26 · 10:00 AM – 4:00 PM IST</p>
+        </div>
+      </div>
+
+      <!-- Controls: Track Selector, Demo Auth Switcher, API Mode, Dark/Light Toggle -->
+      <div class="flex flex-wrap items-center gap-2">
+        <select id="model-select" onchange="handleModelChange()" aria-label="Select AI Model Track" class="rounded-lg px-2.5 py-1.5 text-xs font-medium bg-slate-800 text-slate-100 border border-slate-700 focus:outline-none focus:border-indigo-500">
+          <option value="gemma-4-multimodal">Track 1: Gemma 4 Multimodal (DeepMind)</option>
+          <option value="open-weight-agent">Track 2: Open-Source AI Agent (DigitalOcean)</option>
+          <option value="pr-maintainer-coach">Track 3: First-PR & Etiquette Coach</option>
+        </select>
+
+        <button type="button" id="role-switch-btn" onclick="cycleUserRole()" class="text-xs px-3 py-1.5 rounded-lg bg-indigo-500/15 text-indigo-300 border border-indigo-500/30 hover:bg-indigo-500/25 font-medium transition flex items-center gap-1.5">
+          <span>👤</span>
+          <span id="role-label">Contributor (demo@dtu.ac.in)</span>
+        </button>
+
+        <button type="button" id="api-mode-btn" onclick="toggleApiModal(true)" class="text-xs px-2.5 py-1.5 rounded-lg border border-slate-700 bg-slate-800/70 hover:bg-slate-800 transition font-medium">
+          <span id="api-status-badge">⚡ Sim Mode</span>
+        </button>
+
+        <button type="button" id="theme-toggle-btn" onclick="toggleTheme()" class="text-xs px-3 py-1.5 rounded-lg border border-slate-700 bg-slate-800 hover:bg-slate-700 transition font-medium flex items-center gap-1">
+          <span id="theme-icon">☀️</span>
+          <span id="theme-text">Light</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Navigation Tabs -->
+    <div class="max-w-7xl mx-auto mt-3 pt-2 border-t border-slate-800/70 flex flex-wrap items-center justify-between gap-2">
+      <div class="flex items-center gap-1.5">
+        <button type="button" id="tab-btn-studio" onclick="switchTab('studio')" class="px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600 text-white transition">
+          💬 AI Studio & Drag-Drop Upload
+        </button>
+        <button type="button" id="tab-btn-pr" onclick="switchTab('pr')" class="px-3.5 py-1.5 rounded-lg text-xs font-semibold text-slate-400 hover:text-white hover:bg-slate-800/60 transition">
+          ✅ PR Etiquette & Unit Test Builder
+        </button>
+        <button type="button" id="tab-btn-code" onclick="switchTab('code')" class="px-3.5 py-1.5 rounded-lg text-xs font-semibold text-slate-400 hover:text-white hover:bg-slate-800/60 transition">
+          📦 Full-Stack Boilerplate Code (Next.js + FastAPI)
+        </button>
+      </div>
+      <div class="text-[11px] text-slate-400 hidden md:block">
+        Zero-Setup Auth · Multimodal File Drop · Hacktoberfest 2026 Compliant
+      </div>
+    </div>
+  </header>
+
+  <!-- MAIN CONTENT AREA -->
+  <main class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6">
+
+    <!-- TAB 1: AI STUDIO, DRAG & DROP FILE UPLOAD, AND CHAT INTERFACE -->
+    <section id="tab-panel-studio" class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+      <!-- Left Sidebar: Drag & Drop File Upload + Sample Loaders + Quick Prompts -->
+      <div class="lg:col-span-4 space-y-4">
+
+        <!-- Drag and Drop Card -->
+        <div id="upload-card" class="rounded-2xl border border-slate-800 bg-slate-900/70 p-4 space-y-3">
+          <div class="flex items-center justify-between">
+            <h2 class="text-xs font-bold uppercase tracking-wider text-indigo-400">1. Drag & Drop File Upload UI</h2>
+            <span class="text-[11px] text-slate-400">Image / PDF / Code</span>
+          </div>
+
+          <div
+            id="drop-zone"
+            onclick="triggerFileInput()"
+            ondragover="handleDragOver(event)"
+            ondragleave="handleDragLeave(event)"
+            ondrop="handleDrop(event)"
+            class="cursor-pointer border-2 border-dashed border-slate-700 hover:border-indigo-500 rounded-xl p-5 text-center transition bg-slate-950/50 space-y-2"
+          >
+            <input id="file-input" type="file" class="hidden" onchange="handleFileSelect(event)" />
+            <div class="text-2xl">📂</div>
+            <p class="text-xs font-semibold">Drag & drop your file here, or click to browse</p>
+            <p class="text-[11px] text-slate-400">Supports UI Screenshots (.png, .jpg), Specs (.pdf), or Source Code (.py, .tsx, .js, .md)</p>
+          </div>
+
+          <!-- Instant 1-Click Sample File Loaders for Testing -->
+          <div class="space-y-1.5 pt-1">
+            <p class="text-[11px] font-medium text-slate-400">Or test immediately with a 1-click sample file:</p>
+            <div class="grid grid-cols-3 gap-1.5">
+              <button type="button" id="sample-img-btn" onclick="loadSampleFile('screenshot')" class="px-2 py-1.5 rounded-lg text-[11px] font-medium bg-slate-800 hover:bg-indigo-600/30 border border-slate-700 hover:border-indigo-500/40 transition truncate">
+                🖼️ UI Bug PNG
+              </button>
+              <button type="button" id="sample-code-btn" onclick="loadSampleFile('code')" class="px-2 py-1.5 rounded-lg text-[11px] font-medium bg-slate-800 hover:bg-indigo-600/30 border border-slate-700 hover:border-indigo-500/40 transition truncate">
+                🐍 auth_bug.py
+              </button>
+              <button type="button" id="sample-issue-btn" onclick="loadSampleFile('issue')" class="px-2 py-1.5 rounded-lg text-[11px] font-medium bg-slate-800 hover:bg-indigo-600/30 border border-slate-700 hover:border-indigo-500/40 transition truncate">
+                📄 issue_42.md
+              </button>
+            </div>
+          </div>
+
+          <!-- Attached File Preview Box -->
+          <div id="file-preview-box" class="hidden rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3 space-y-2">
+            <div class="flex items-center justify-between gap-2">
+              <div class="flex items-center gap-2 min-w-0">
+                <span id="file-preview-icon" class="text-base">📎</span>
+                <div class="truncate">
+                  <p id="file-preview-name" class="text-xs font-semibold text-emerald-300 truncate">file.py</p>
+                  <p id="file-preview-meta" class="text-[10px] text-slate-400">1.2 KB · Ready for multimodal analysis</p>
+                </div>
+              </div>
+              <button type="button" id="remove-file-btn" onclick="clearAttachedFile()" class="text-xs text-rose-400 hover:text-rose-300 px-2 py-0.5 rounded bg-rose-500/10">
+                Remove
+              </button>
+            </div>
+            <img id="file-image-preview" alt="Uploaded preview" class="hidden max-h-36 w-auto mx-auto rounded-lg border border-slate-700" />
+            <pre id="file-code-preview" class="hidden text-[11px] mono bg-slate-950/90 text-slate-300 p-2.5 rounded-lg max-h-28 overflow-y-auto custom-scroll"></pre>
+          </div>
+        </div>
+
+        <!-- Hackathon Quick-Action Prompt Presets -->
+        <div id="presets-card" class="rounded-2xl border border-slate-800 bg-slate-900/70 p-4 space-y-2.5">
+          <h2 class="text-xs font-bold uppercase tracking-wider text-indigo-400">2. One-Click Hackathon Prompts</h2>
+          <div class="space-y-1.5">
+            <button type="button" id="preset-btn-1" onclick="runQuickPrompt('triage')" class="w-full text-left px-3 py-2 rounded-xl text-xs bg-slate-800/80 hover:bg-indigo-600/20 border border-slate-700/80 hover:border-indigo-500/40 transition flex items-center justify-between">
+              <span>🔍 Analyze attached file & pinpoint root cause</span>
+              <span class="text-indigo-400">→</span>
+            </button>
+            <button type="button" id="preset-btn-2" onclick="runQuickPrompt('unittest')" class="w-full text-left px-3 py-2 rounded-xl text-xs bg-slate-800/80 hover:bg-indigo-600/20 border border-slate-700/80 hover:border-indigo-500/40 transition flex items-center justify-between">
+              <span>🧪 Generate Failing-to-Passing Unit Test (pytest/Jest)</span>
+              <span class="text-indigo-400">→</span>
+            </button>
+            <button type="button" id="preset-btn-3" onclick="runQuickPrompt('gemma')" class="w-full text-left px-3 py-2 rounded-xl text-xs bg-slate-800/80 hover:bg-indigo-600/20 border border-slate-700/80 hover:border-indigo-500/40 transition flex items-center justify-between">
+              <span>✨ Build Gemma 4 Multimodal Vision + Text Workflow</span>
+              <span class="text-indigo-400">→</span>
+            </button>
+            <button type="button" id="preset-btn-4" onclick="runQuickPrompt('pitch')" class="w-full text-left px-3 py-2 rounded-xl text-xs bg-slate-800/80 hover:bg-indigo-600/20 border border-slate-700/80 hover:border-indigo-500/40 transition flex items-center justify-between">
+              <span>🎤 Generate 4-Minute DTU Stage Demo Pitch Script</span>
+              <span class="text-indigo-400">→</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right Column: Interactive Chat Interface -->
+      <div id="chat-card" class="lg:col-span-8 rounded-2xl border border-slate-800 bg-slate-900/70 flex flex-col h-[72vh]">
+        <!-- Chat Top Bar -->
+        <div class="px-4 py-3 border-b border-slate-800 flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <span class="h-2.5 w-2.5 rounded-full bg-indigo-400"></span>
+            <h2 class="text-xs sm:text-sm font-bold" id="chat-header-title">Multimodal AI Workspace (Gemma 4 / FastAPI Ready)</h2>
+          </div>
+          <div class="flex items-center gap-2">
+            <button type="button" id="export-chat-btn" onclick="exportChatHistory()" class="text-[11px] px-2.5 py-1 rounded-lg border border-slate-700 hover:bg-slate-800 transition">
+              📋 Copy Transcript
+            </button>
+            <button type="button" id="clear-chat-btn" onclick="clearChatHistory()" class="text-[11px] px-2.5 py-1 rounded-lg border border-slate-700 hover:bg-slate-800 text-rose-400 transition">
+              🗑️ Reset
+            </button>
+          </div>
+        </div>
+
+        <!-- Chat Messages Scroll Container -->
+        <div id="chat-messages" class="flex-1 p-4 overflow-y-auto custom-scroll space-y-4">
+          <!-- Populated dynamically via renderMessages() -->
+        </div>
+
+        <!-- Chat Input Bar -->
+        <form id="chat-form" onsubmit="handleChatSubmit(event)" class="p-3 border-t border-slate-800 bg-slate-950/60 rounded-b-2xl">
+          <div class="flex gap-2">
+            <input
+              id="chat-input"
+              type="text"
+              placeholder="Ask anything, paste a GitHub issue URL, or analyze your attached file..."
+              class="flex-1 rounded-xl bg-slate-900 border border-slate-700 px-4 py-2.5 text-xs sm:text-sm focus:outline-none focus:border-indigo-500"
+            />
+            <button
+              type="submit"
+              id="send-msg-btn"
+              class="px-5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg shadow-indigo-600/20 transition"
+            >
+              Run Agent →
+            </button>
+          </div>
+        </form>
+      </div>
+    </section>
+
+    <!-- TAB 2: PR ETIQUETTE & UNIT TEST BUILDER (HACKTOBERFEST 2026 COMPLIANT) -->
+    <section id="tab-panel-pr" class="hidden grid-cols-1 lg:grid-cols-12 gap-6">
+      <div class="lg:col-span-6 rounded-2xl border border-slate-800 bg-slate-900/70 p-5 space-y-4">
+        <div class="flex items-center justify-between">
+          <div>
+            <h2 class="text-base font-bold">Hacktoberfest 2026 PR Etiquette Checker</h2>
+            <p class="text-xs text-slate-400">Ensure 100% maintainer acceptance & zero spam flags at SKILLOP DTU</p>
+          </div>
+          <div id="pr-score-badge" class="px-3 py-1.5 rounded-xl font-bold text-xs bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+            Score: 100%
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label for="pr-issue-num" class="text-xs font-medium text-slate-300 block mb-1">Target Issue Number</label>
+            <input id="pr-issue-num" type="text" value="#42" oninput="updatePrBuilder()" class="w-full rounded-lg bg-slate-950 border border-slate-700 px-3 py-2 text-xs mono" />
+          </div>
+          <div>
+            <label for="pr-branch-name" class="text-xs font-medium text-slate-300 block mb-1">Git Branch Name</label>
+            <input id="pr-branch-name" type="text" value="fix/issue-42-null-token-guard" oninput="updatePrBuilder()" class="w-full rounded-lg bg-slate-950 border border-slate-700 px-3 py-2 text-xs mono" />
+          </div>
+        </div>
+
+        <div>
+          <label for="pr-title-input" class="text-xs font-medium text-slate-300 block mb-1">Pull Request Title (Conventional Commit Style)</label>
+          <input id="pr-title-input" type="text" value="fix(auth): handle expired OAuth token gracefully without crash" oninput="updatePrBuilder()" class="w-full rounded-lg bg-slate-950 border border-slate-700 px-3 py-2 text-xs" />
+        </div>
+
+        <div>
+          <label for="pr-summary-input" class="text-xs font-medium text-slate-300 block mb-1">What Changed & Why (Focused on 1 Issue)</label>
+          <textarea id="pr-summary-input" rows="3" oninput="updatePrBuilder()" class="w-full rounded-lg bg-slate-950 border border-slate-700 px-3 py-2 text-xs">Added a defensive check in `verify_session_token()` when `token_expiry` is None, preventing an unhandled TypeError during guest checkout.</textarea>
+        </div>
+
+        <div>
+          <label for="pr-test-input" class="text-xs font-medium text-slate-300 block mb-1">How You Verified It (Failing-to-Passing Test Command)</label>
+          <input id="pr-test-input" type="text" value="pytest tests/test_auth.py -k test_expired_oauth_token (1 passed in 0.14s)" oninput="updatePrBuilder()" class="w-full rounded-lg bg-slate-950 border border-slate-700 px-3 py-2 text-xs mono" />
+        </div>
+
+        <!-- 4 Golden Rules Checkboxes -->
+        <div class="space-y-2 pt-1 border-t border-slate-800">
+          <p class="text-xs font-semibold text-indigo-400">Mandatory Open-Source Etiquette Checks:</p>
+          <label class="flex items-center gap-2 text-xs cursor-pointer">
+            <input type="checkbox" id="chk-single-scope" checked onchange="updatePrBuilder()" class="rounded border-slate-600" />
+            <span>Single focused problem only (no unrelated formatting or multi-file noise)</span>
+          </label>
+          <label class="flex items-center gap-2 text-xs cursor-pointer">
+            <input type="checkbox" id="chk-unit-test" checked onchange="updatePrBuilder()" class="rounded border-slate-600" />
+            <span>Added/updated a unit test that fails before my fix and passes after it</span>
+          </label>
+          <label class="flex items-center gap-2 text-xs cursor-pointer">
+            <input type="checkbox" id="chk-ai-policy" checked onchange="updatePrBuilder()" class="rounded border-slate-600" />
+            <span>Followed project CONTRIBUTING.md & can explain every line of code to judges</span>
+          </label>
+        </div>
+      </div>
+
+      <!-- Right Side: Generated PR Markdown + Git Commands -->
+      <div class="lg:col-span-6 rounded-2xl border border-slate-800 bg-slate-900/70 p-5 flex flex-col justify-between space-y-4">
+        <div class="space-y-3">
+          <div class="flex items-center justify-between">
+            <h3 class="text-sm font-bold text-emerald-400">Ready-to-Paste GitHub PR Description</h3>
+            <button type="button" id="copy-pr-md-btn" onclick="copyElementText('pr-markdown-output', 'PR Markdown copied to clipboard!')" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white">
+              📋 Copy PR Markdown
+            </button>
+          </div>
+          <pre id="pr-markdown-output" class="p-4 rounded-xl bg-slate-950 border border-slate-800 text-xs mono text-slate-200 whitespace-pre-wrap overflow-x-auto leading-relaxed"></pre>
+        </div>
+
+        <div class="space-y-2">
+          <div class="flex items-center justify-between">
+            <h3 class="text-xs font-bold uppercase tracking-wider text-slate-400">Exact Terminal Git Workflow</h3>
+            <button type="button" id="copy-git-cmds-btn" onclick="copyElementText('git-cmds-output', 'Git commands copied!')" class="px-2.5 py-1 rounded-lg text-xs border border-slate-700 hover:bg-slate-800">
+              📋 Copy Commands
+            </button>
+          </div>
+          <pre id="git-cmds-output" class="p-3.5 rounded-xl bg-slate-950 border border-slate-800 text-xs mono text-emerald-300 overflow-x-auto"></pre>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 3: FULL-STACK BOILERPLATE CODE EXPLORER (NEXT.JS + FASTAPI) -->
+    <section id="tab-panel-code" class="hidden space-y-4">
+      <div class="rounded-2xl border border-slate-800 bg-slate-900/70 p-5 space-y-4">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 class="text-base font-bold">Master Folder: <span class="mono text-indigo-400">hackday-starter/</span> Full-Stack Source Files</h2>
+            <p class="text-xs text-slate-400">All files below are also packaged inside your downloadable <strong>hackday-starter.zip</strong> archive.</p>
+          </div>
+          <button type="button" id="copy-current-code-btn" onclick="copyElementText('code-viewer-content', 'Source file copied to clipboard!')" class="px-4 py-2 rounded-xl text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white">
+            📋 Copy Current File
+          </button>
+        </div>
+
+        <!-- File Selector Pills -->
+        <div class="flex flex-wrap gap-2 border-b border-slate-800 pb-3">
+          <button type="button" id="file-tab-backend" onclick="selectBoilerplateFile('backend_main')" class="px-3 py-1.5 rounded-lg text-xs mono font-semibold bg-indigo-600 text-white">
+            backend/main.py
+          </button>
+          <button type="button" id="file-tab-ai" onclick="selectBoilerplateFile('backend_ai')" class="px-3 py-1.5 rounded-lg text-xs mono font-semibold bg-slate-800 text-slate-300 hover:bg-slate-700">
+            backend/ai_service.py
+          </button>
+          <button type="button" id="file-tab-frontend" onclick="selectBoilerplateFile('frontend_page')" class="px-3 py-1.5 rounded-lg text-xs mono font-semibold bg-slate-800 text-slate-300 hover:bg-slate-700">
+            frontend/app/page.tsx
+          </button>
+          <button type="button" id="file-tab-middleware" onclick="selectBoilerplateFile('frontend_mw')" class="px-3 py-1.5 rounded-lg text-xs mono font-semibold bg-slate-800 text-slate-300 hover:bg-slate-700">
+            frontend/middleware.ts
+          </button>
+          <button type="button" id="file-tab-setup" onclick="selectBoilerplateFile('setup_sh')" class="px-3 py-1.5 rounded-lg text-xs mono font-semibold bg-slate-800 text-slate-300 hover:bg-slate-700">
+            setup.sh (1-Command Install)
+          </button>
+        </div>
+
+        <!-- Code Viewer -->
+        <pre id="code-viewer-content" class="p-4 rounded-xl bg-slate-950 border border-slate-800 text-xs mono text-slate-200 overflow-x-auto max-h-[60vh] custom-scroll leading-relaxed"></pre>
+      </div>
+    </section>
+
+  </main>
+
+  <script>
+    // Application State
+    let isDark = true;
+    let currentTab = 'studio';
+    let userRoleIndex = 0;
+    const userRoles = [
+      'Contributor (demo@dtu.ac.in)',
+      'Maintainer (lead@skillop.in)',
+      'Guest Hacker (team-dtu-01)'
+    ];
+    let selectedModel = 'gemma-4-multimodal';
+    let attachedFile = null; // { name, size, type, content, dataUrl }
+    let geminiApiKey = '';
+
+    try {
+      const savedKey = localStorage.getItem('HACKDAY_GEMINI_KEY');
+      if (savedKey) geminiApiKey = savedKey;
+    } catch (e) {}
+
+    const initialMessages = [
+      {
+        role: 'assistant',
+        author: 'Gemma 4 · Hack Day Copilot',
+        time: '10:00 AM',
+        text: 'Namaste! Welcome to your **Hacktoberfest Hack Day DTU** Ready-to-Run Studio.\n\n1. **Drag & Drop** any screenshot, PDF, or code file on the left (or click a **1-click sample file** like `🖼️ UI Bug PNG` or `🐍 auth_bug.py`).\n2. Click any **One-Click Hackathon Prompt** or type your question below.\n3. Switch to **PR Etiquette & Unit Test Builder** or **Full-Stack Boilerplate Code** in the top bar anytime!'
+      }
+    ];
+    let messages = initialMessages.slice();
+
+    // Sample Files for 1-Click Testing
+    const SAMPLE_FILES = {
+      screenshot: {
+        name: 'navbar_overflow_bug_dtu.svg',
+        size: 2450,
+        type: 'image/svg+xml',
+        content: 'UI Bug Report Screenshot: Mobile navbar overlaps "Submit PR" CTA button at 375px viewport width on iOS Safari; z-index conflict between header and modal backdrop.',
+        dataUrl: 'data:image/svg+xml;utf8,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="480" height="220" viewBox="0 0 480 220"><rect width="480" height="220" rx="12" fill="#0f172a"/><rect x="16" y="16" width="448" height="44" rx="8" fill="#1e293b" stroke="#475569"/><text x="30" y="43" fill="#f8fafc" font-family="sans-serif" font-size="14" font-weight="bold">SKILLOP DTU Portal</text><rect x="310" y="24" width="170" height="32" rx="6" fill="#ef4444" opacity="0.9"/><text x="322" y="45" fill="#ffffff" font-family="sans-serif" font-size="12" font-weight="bold">OVERLAPPING CTA BUG</text><rect x="16" y="76" width="448" height="124" rx="8" fill="#1e293b" stroke="#ef4444" stroke-dasharray="6 4"/><text x="32" y="115" fill="#fca5a5" font-family="monospace" font-size="12">Issue #108: Navbar CTA overflows container at &lt;640px</text><text x="32" y="145" fill="#94a3b8" font-family="monospace" font-size="11">Expected: flex-wrap with responsive gap-2</text><text x="32" y="170" fill="#38bdf8" font-family="monospace" font-size="11">Detected by: Gemma 4 Multimodal Vision Triage</text></svg>')
+      },
+      code: {
+        name: 'auth_bug.py',
+        size: 680,
+        type: 'text/x-python',
+        content: `def verify_session_token(user_dict, token_expiry):\n    # BUG Issue #42: Crashes with TypeError when Guest Mode user has token_expiry=None\n    from datetime import datetime\n    now_ts = datetime.utcnow().timestamp()\n    if token_expiry < now_ts:\n        return {"authenticated": False, "reason": "expired"}\n    return {"authenticated": True, "user": user_dict.get("email")}`
+      },
+      issue: {
+        name: 'issue_42_spec.md',
+        size: 820,
+        type: 'text/markdown',
+        content: `# Issue #42: Guest checkout crashes with TypeError in verify_session_token\n- **Labels:** good-first-issue, hacktoberfest, bug\n- **Repository:** skillop-dtu/open-campus-portal\n- **Steps to Reproduce:** Click 'Continue as Guest' -> ` + '`token_expiry`' + ` is passed as None -> raises ` + '`TypeError: "<" not supported between instances of "NoneType" and "float"`' + `.\n- **Acceptance Criteria:** Return guest session gracefully and add unit test in tests/test_auth.py.`
+      }
+    };
+
+    // Boilerplate Code Files for Tab 3
+    const BOILERPLATE_FILES = {
+      backend_main: `from fastapi import FastAPI, UploadFile, File, Form\nfrom fastapi.middleware.cors import CORSMiddleware\nfrom ai_service import HackDayAIService\n\napp = FastAPI(title="Hacktoberfest Hack Day DTU - AI Backend")\n\napp.add_middleware(\n    CORSMiddleware,\n    allow_origins=["http://localhost:3000", "*"],\n    allow_credentials=True,\n    allow_methods=["*"],\n    allow_headers=["*"],\n)\n\nai_service = HackDayAIService()\n\n@app.get("/health")\ndef health_check():\n    return {"status": "ok", "service": "Hack Day DTU FastAPI"}\n\n@app.post("/api/analyze")\nasync def analyze_with_ai(\n    prompt: str = Form(...),\n    model: str = Form("gemini-2.5-flash"),\n    file: UploadFile | None = File(None),\n):\n    file_bytes = await file.read() if file else None\n    return await ai_service.analyze(\n        prompt=prompt,\n        model_name=model,\n        file_bytes=file_bytes,\n        filename=file.filename if file else None,\n        content_type=file.content_type if file else None,\n    )`,
+      backend_ai: `import io, os\nfrom dotenv import load_dotenv\nfrom google import genai\nfrom PIL import Image\nimport PyPDF2\n\nload_dotenv()\n\nclass HackDayAIService:\n    def __init__(self):\n        key = os.getenv("GEMINI_API_KEY", "")\n        self.client = genai.Client(api_key=key) if key else None\n\n    async def analyze(self, prompt, model_name="gemini-2.5-flash", file_bytes=None, filename=None, content_type=None):\n        contents = [prompt]\n        if file_bytes and filename:\n            if content_type and content_type.startswith("image/"):\n                contents.append(Image.open(io.BytesIO(file_bytes)))\n            elif filename.endswith(".pdf"):\n                reader = PyPDF2.PdfReader(io.BytesIO(file_bytes))\n                contents.append("\\n".join([p.extract_text() or "" for p in reader.pages])[:15000])\n            else:\n                contents.append(file_bytes.decode("utf-8", errors="ignore")[:15000])\n        resp = self.client.models.generate_content(model=model_name, contents=contents)\n        return {"reply": resp.text, "filename": filename, "model": model_name}`,
+      frontend_page: `"use client";\nimport React, { useState } from "react";\n\nexport default function HackDayDashboard() {\n  const [darkMode, setDarkMode] = useState(true);\n  const [prompt, setPrompt] = useState("");\n  const [file, setFile] = useState<File | null>(null);\n  const [messages, setMessages] = useState([\n    { role: "assistant", text: "Ready! Drop a screenshot, PDF, or code file below." }\n  ]);\n\n  async function handleSubmit(e: React.FormEvent) {\n    e.preventDefault();\n    const formData = new FormData();\n    formData.append("prompt", prompt);\n    if (file) formData.append("file", file);\n    const res = await fetch("http://localhost:8000/api/analyze", { method: "POST", body: formData });\n    const data = await res.json();\n    setMessages((prev) => [...prev, { role: "user", text: prompt }, { role: "assistant", text: data.reply }]);\n    setPrompt("");\n  }\n  // Full responsive Dark/Light + Drag-and-Drop JSX included in hackday-starter.zip\n  return <div>...</div>;\n}`,
+      frontend_mw: `import { NextResponse } from "next/server";\nimport type { NextRequest } from "next/server";\n\n// 1-Click Demo Guest Mode Middleware (Saves 2 hours during a 6-hour Hack Day)\nexport function middleware(request: NextRequest) {\n  const response = NextResponse.next();\n  response.headers.set("x-hackday-demo-user", "demo@dtu.ac.in");\n  return response;\n}`,
+      setup_sh: `#!/usr/bin/env bash\nset -e\ncd backend && python3 -m venv venv && source venv/bin/activate\npip install -r requirements.txt\ncp -n .env.example .env || true\ncd ../frontend && npm install\necho "Setup complete! Run uvicorn in backend/ and npm run dev in frontend/"`
+    };
+
+    function showToast(msg) {
+      const box = document.getElementById('toast-box');
+      const txt = document.getElementById('toast-text');
+      txt.textContent = msg;
+      box.classList.remove('hidden');
+      box.classList.add('flex');
+      setTimeout(() => {
+        box.classList.add('hidden');
+        box.classList.remove('flex');
+      }, 2600);
+    }
+
+    function toggleTheme() {
+      isDark = !isDark;
+      const body = document.getElementById('app-body');
+      const header = document.getElementById('main-header');
+      const icon = document.getElementById('theme-icon');
+      const text = document.getElementById('theme-text');
+      const cards = ['upload-card', 'presets-card', 'chat-card'];
+
+      if (isDark) {
+        body.className = 'bg-slate-950 text-slate-100 transition-colors duration-200 min-h-screen flex flex-col';
+        header.className = 'border-b border-slate-800 bg-slate-900/80 backdrop-blur sticky top-0 z-30 px-4 sm:px-6 py-3';
+        icon.textContent = '☀️';
+        text.textContent = 'Light';
+        cards.forEach(id => {
+          const el = document.getElementById(id);
+          if (el) {
+            el.classList.remove('bg-white', 'border-slate-200', 'shadow-sm');
+            el.classList.add('bg-slate-900/70', 'border-slate-800');
+          }
+        });
+      } else {
+        body.className = 'bg-slate-100 text-slate-900 transition-colors duration-200 min-h-screen flex flex-col';
+        header.className = 'border-b border-slate-200 bg-white/90 backdrop-blur sticky top-0 z-30 px-4 sm:px-6 py-3 shadow-sm';
+        icon.textContent = '🌙';
+        text.textContent = 'Dark';
+        cards.forEach(id => {
+          const el = document.getElementById(id);
+          if (el) {
+            el.classList.remove('bg-slate-900/70', 'border-slate-800');
+            el.classList.add('bg-white', 'border-slate-200', 'shadow-sm');
+          }
+        });
+      }
+      renderMessages();
+      showToast(isDark ? 'Switched to Dark Mode' : 'Switched to Light Mode');
+    }
+
+    function cycleUserRole() {
+      userRoleIndex = (userRoleIndex + 1) % userRoles.length;
+      document.getElementById('role-label').textContent = userRoles[userRoleIndex];
+      showToast('Active Demo Session: ' + userRoles[userRoleIndex]);
+    }
+
+    function handleModelChange() {
+      const sel = document.getElementById('model-select');
+      selectedModel = sel.value;
+      const titles = {
+        'gemma-4-multimodal': 'Multimodal AI Workspace (Gemma 4 / DeepMind Track)',
+        'open-weight-agent': 'Open-Source AI Agent Workspace (DigitalOcean Track)',
+        'pr-maintainer-coach': 'First-PR & Open-Source Etiquette Coach (SKILLOP DTU)'
+      };
+      document.getElementById('chat-header-title').textContent = titles[selectedModel] || 'Multimodal AI Workspace';
+      showToast('Switched track: ' + sel.options[sel.selectedIndex].text);
+    }
+
+    function toggleApiModal(show) {
+      const modal = document.getElementById('api-modal');
+      const input = document.getElementById('api-key-input');
+      if (show) {
+        input.value = geminiApiKey;
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+      } else {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+      }
+    }
+
+    function saveApiKey(clearKey) {
+      const input = document.getElementById('api-key-input');
+      geminiApiKey = clearKey ? '' : input.value.trim();
+      try {
+        if (geminiApiKey) {
+          localStorage.setItem('HACKDAY_GEMINI_KEY', geminiApiKey);
+        } else {
+          localStorage.removeItem('HACKDAY_GEMINI_KEY');
+        }
+      } catch (e) {}
+      updateApiBadge();
+      toggleApiModal(false);
+      showToast(geminiApiKey ? 'Live Gemini API Key Activated!' : 'Using Offline Hackathon Simulation Engine');
+    }
+
+    function updateApiBadge() {
+      const badge = document.getElementById('api-status-badge');
+      if (geminiApiKey) {
+        badge.textContent = '🟢 Live Gemini API';
+      } else {
+        badge.textContent = '⚡ Sim Mode';
+      }
+    }
+
+    function switchTab(tabName) {
+      currentTab = tabName;
+      const tabs = ['studio', 'pr', 'code'];
+      tabs.forEach(t => {
+        const panel = document.getElementById('tab-panel-' + t);
+        const btn = document.getElementById('tab-btn-' + t);
+        if (t === tabName) {
+          panel.classList.remove('hidden');
+          if (t !== 'code') panel.classList.add('grid');
+          btn.className = 'px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600 text-white transition';
+        } else {
+          panel.classList.add('hidden');
+          panel.classList.remove('grid');
+          btn.className = 'px-3.5 py-1.5 rounded-lg text-xs font-semibold text-slate-400 hover:text-white hover:bg-slate-800/60 transition';
+        }
+      });
+    }
+
+    // Drag & Drop File Handlers
+    function triggerFileInput() {
+      document.getElementById('file-input').click();
+    }
+
+    function handleDragOver(e) {
+      e.preventDefault();
+      const dz = document.getElementById('drop-zone');
+      dz.classList.add('border-indigo-500', 'bg-indigo-500/10');
+    }
+
+    function handleDragLeave(e) {
+      e.preventDefault();
+      const dz = document.getElementById('drop-zone');
+      dz.classList.remove('border-indigo-500', 'bg-indigo-500/10');
+    }
+
+    function handleDrop(e) {
+      e.preventDefault();
+      handleDragLeave(e);
+      if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]) {
+        processUploadedFile(e.dataTransfer.files[0]);
+      }
+    }
+
+    function handleFileSelect(e) {
+      if (e.target.files && e.target.files[0]) {
+        processUploadedFile(e.target.files[0]);
+      }
+    }
+
+    function processUploadedFile(file) {
+      const reader = new FileReader();
+      const isImage = file.type && file.type.startsWith('image/');
+      reader.onload = function(evt) {
+        const result = evt.target.result;
+        attachedFile = {
+          name: file.name,
+          size: file.size,
+          type: file.type || 'text/plain',
+          content: isImage ? 'Uploaded image (' + file.name + ')' : String(result).slice(0, 6000),
+          dataUrl: isImage ? result : null
+        };
+        renderFilePreview();
+        showToast('Attached: ' + file.name);
+      };
+      if (isImage) {
+        reader.readAsDataURL(file);
+      } else {
+        reader.readAsText(file);
+      }
+    }
+
+    function loadSampleFile(kind) {
+      const sample = SAMPLE_FILES[kind];
+      if (!sample) return;
+      attachedFile = Object.assign({}, sample);
+      renderFilePreview();
+      showToast('Loaded sample file: ' + sample.name);
+    }
+
+    function renderFilePreview() {
+      const box = document.getElementById('file-preview-box');
+      const imgEl = document.getElementById('file-image-preview');
+      const codeEl = document.getElementById('file-code-preview');
+      if (!attachedFile) {
+        box.classList.add('hidden');
+        return;
+      }
+      box.classList.remove('hidden');
+      document.getElementById('file-preview-name').textContent = attachedFile.name;
+      document.getElementById('file-preview-meta').textContent =
+        Math.max(1, Math.round(attachedFile.size / 1024)) + ' KB · ' + attachedFile.type;
+
+      if (attachedFile.dataUrl) {
+        imgEl.src = attachedFile.dataUrl;
+        imgEl.classList.remove('hidden');
+        codeEl.classList.add('hidden');
+      } else {
+        imgEl.classList.add('hidden');
+        codeEl.textContent = attachedFile.content;
+        codeEl.classList.remove('hidden');
+      }
+    }
+
+    function clearAttachedFile() {
+      attachedFile = null;
+      const input = document.getElementById('file-input');
+      if (input) input.value = '';
+      renderFilePreview();
+      showToast('Removed attached file');
+    }
+
+    // Chat & AI Execution
+    function renderMessages() {
+      const container = document.getElementById('chat-messages');
+      container.innerHTML = '';
+      messages.forEach((m) => {
+        const wrapper = document.createElement('div');
+        if (m.role === 'user') {
+          wrapper.className = 'p-3.5 rounded-2xl bg-indigo-600 text-white ml-8 sm:ml-16 shadow-sm space-y-1';
+        } else {
+          wrapper.className = isDark
+            ? 'p-4 rounded-2xl bg-slate-950/90 border border-slate-800 text-slate-100 mr-4 sm:mr-12 space-y-2'
+            : 'p-4 rounded-2xl bg-slate-50 border border-slate-200 text-slate-900 mr-4 sm:mr-12 space-y-2';
+        }
+
+        const header = document.createElement('div');
+        header.className = 'flex items-center justify-between text-[11px] opacity-75 font-semibold';
+        header.innerHTML = '<span>' + escapeHtml(m.author || (m.role === 'user' ? userRoles[userRoleIndex] : 'AI Agent')) + '</span><span>' + escapeHtml(m.time || '') + '</span>';
+
+        const body = document.createElement('div');
+        body.className = 'text-xs sm:text-sm whitespace-pre-wrap leading-relaxed mono';
+        body.textContent = m.text;
+
+        wrapper.appendChild(header);
+        if (m.fileBadge) {
+          const badge = document.createElement('div');
+          badge.className = 'inline-block text-[11px] px-2 py-0.5 rounded bg-black/20 text-amber-300 font-medium';
+          badge.textContent = '📎 ' + m.fileBadge;
+          wrapper.appendChild(badge);
+        }
+        wrapper.appendChild(body);
+        container.appendChild(wrapper);
+      });
+      container.scrollTop = container.scrollHeight;
+    }
+
+    function escapeHtml(str) {
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+    }
+
+    function runQuickPrompt(presetKey) {
+      const prompts = {
+        triage: 'Analyze the attached file/issue, identify the exact root cause, and provide a minimal, clean code fix following Hacktoberfest 2026 etiquette.',
+        unittest: 'Write a failing-to-passing unit test (pytest / Jest) for this issue so maintainers can verify the fix in 1 command.',
+        gemma: 'Show how to integrate Gemma 4 multimodal (image + text) API into our DTU Hack Day project for maximum judging score.',
+        pitch: 'Create a 4-minute stage demo script for SKILLOP DTU judges (30s Hook + 2m Live Demo + 45s Gemma 4 / Open-Source Architecture + Q&A).'
+      };
+      const input = document.getElementById('chat-input');
+      input.value = prompts[presetKey] || '';
+      handleChatSubmit(new Event('submit'));
+    }
+
+    async function handleChatSubmit(e) {
+      if (e && e.preventDefault) e.preventDefault();
+      const input = document.getElementById('chat-input');
+      const text = input.value.trim();
+      if (!text && !attachedFile) {
+        showToast('Enter a prompt or attach a file first');
+        return;
+      }
+
+      const now = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      const fileBadge = attachedFile ? attachedFile.name : null;
+      const activeFileCopy = attachedFile ? Object.assign({}, attachedFile) : null;
+
+      messages.push({
+        role: 'user',
+        author: userRoles[userRoleIndex],
+        time: now,
+        text: text || ('Analyze attached file: ' + activeFileCopy.name),
+        fileBadge: fileBadge
+      });
+      input.value = '';
+      renderMessages();
+
+      const replyText = await generateAIResponse(text, activeFileCopy);
+      messages.push({
+        role: 'assistant',
+        author: selectedModel === 'gemma-4-multimodal' ? 'Gemma 4 Multimodal Agent' : 'Open-Source AI Copilot',
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        text: replyText
+      });
+      renderMessages();
+    }
+
+    async function generateAIResponse(promptText, fileObj) {
+      // If user configured a live Gemini API key, call Google Generative Language API directly
+      if (geminiApiKey) {
+        try {
+          const fullPrompt =
+            'You are an expert Hacktoberfest 2026 & Gemma 4 AI Copilot at SKILLOP DTU Hack Day.\n' +
+            (fileObj ? 'Attached File (' + fileObj.name + '):\n' + fileObj.content + '\n\n' : '') +
+            'User Request: ' + promptText;
+
+          const url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=' + encodeURIComponent(geminiApiKey);
+          const response = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              contents: [{ parts: [{ text: fullPrompt }] }]
+            })
+          });
+          const data = await response.json();
+          const candidate = data && data.candidates && data.candidates[0];
+          const part = candidate && candidate.content && candidate.content.parts && candidate.content.parts[0];
+          if (part && part.text) {
+            return part.text;
+          }
+        } catch (err) {
+          // Fall back cleanly to simulation engine if offline
+        }
+      }
+
+      // Built-in Contextual Hackathon AI Response Engine
+      const lower = (promptText + ' ' + (fileObj ? fileObj.name : '')).toLowerCase();
+      if (lower.includes('test') || lower.includes('pytest') || lower.includes('jest')) {
+        return (
+          '✅ **Failing-to-Passing Unit Test Generated (`tests/test_auth.py`)**\n\n' +
+          '```python\n' +
+          'import pytest\n' +
+          'from auth_bug import verify_session_token\n\n' +
+          'def test_guest_user_with_none_expiry_does_not_crash():\n' +
+          '    # Fails before fix with TypeError; passes after adding None guard\n' +
+          '    guest = {"email": "guest@dtu.ac.in"}\n' +
+          '    result = verify_session_token(guest, token_expiry=None)\n' +
+          '    assert result["authenticated"] is True\n' +
+          '    assert result["mode"] == "guest"\n' +
+          '```\n\n' +
+          '**Verification Command for PR Body:**\n' +
+          '`pytest tests/test_auth.py -v` → `1 passed in 0.12s`'
+        );
+      }
+
+      if (lower.includes('pitch') || lower.includes('demo') || lower.includes('stage')) {
+        return (
+          '🎤 **4-Minute Finalist Stage Pitch Script (SKILLOP DTU Judges)**\n\n' +
+          '• **0:00 – 0:30 (The Hook):** "Every October, open-source maintainers drown in broken PRs while beginners get stuck on setup. We built an AI Maintainer & First-PR Copilot powered by Gemma 4."\n' +
+          '• **0:30 – 2:30 (Live Demo):** Drag & drop `navbar_overflow_bug_dtu.svg` and `auth_bug.py` live on stage → show instant root-cause patch + automated failing-to-passing unit test generation.\n' +
+          '• **2:30 – 3:15 (Gemma 4 & Open-Weight Architecture):** Highlight multimodal vision + code context running via FastAPI (`backend/main.py`) and Next.js App Router.\n' +
+          '• **3:15 – 4:00 (Q&A):** Show your public GitHub repo with clean `README.md` and `CONTRIBUTING.md`.'
+        );
+      }
+
+      if (fileObj && fileObj.type && fileObj.type.startsWith('image/')) {
+        return (
+          '👁️ **Gemma 4 Multimodal Vision Analysis (`' + fileObj.name + '`)**\n\n' +
+          '1. **Detected Visual Defect:** Header CTA button (`OVERLAPPING CTA BUG`) overflows flex container below `640px` viewport width.\n' +
+          '2. **Minimal Tailwind Fix (`frontend/app/page.tsx`):**\n' +
+          '```tsx\n' +
+          '- <header className="flex justify-between items-center px-6">\n' +
+          '+ <header className="flex flex-wrap justify-between items-center gap-3 px-4 sm:px-6">\n' +
+          '```\n' +
+          '3. **PR Etiquette Tip:** Attach Before & After screenshots in your PR description referencing `Fixes #108`.'
+        );
+      }
+
+      return (
+        '🚀 **Root-Cause Analysis & Patch (' + (fileObj ? fileObj.name : 'Project Workspace') + ')**\n\n' +
+        '1. **Focused Problem Identified:** In `verify_session_token()`, comparing `token_expiry < now_ts` raises `TypeError` when `token_expiry` is `None` (Guest Mode).\n' +
+        '2. **Clean 3-Line Patch:**\n' +
+        '```python\n' +
+        'def verify_session_token(user_dict, token_expiry):\n' +
+        '    if token_expiry is None:\n' +
+        '        return {"authenticated": True, "mode": "guest", "user": user_dict.get("email")}\n' +
+        '```\n' +
+        '3. **Next Step:** Open the **✅ PR Etiquette & Unit Test Builder** tab above to copy your formatted GitHub Pull Request description!'
+      );
+    }
+
+    function clearChatHistory() {
+      messages = initialMessages.slice();
+      renderMessages();
+      showToast('Chat workspace reset');
+    }
+
+    function exportChatHistory() {
+      const text = messages.map(m => '[' + m.author + ' - ' + m.time + ']\n' + m.text).join('\n\n---\n\n');
+      copyRawText(text, 'Full chat transcript copied to clipboard!');
+    }
+
+    // Tab 2: PR Etiquette Builder
+    function updatePrBuilder() {
+      const issue = document.getElementById('pr-issue-num').value.trim() || '#42';
+      const branch = document.getElementById('pr-branch-name').value.trim() || 'fix/issue-42';
+      const title = document.getElementById('pr-title-input').value.trim() || 'fix: resolve issue';
+      const summary = document.getElementById('pr-summary-input').value.trim();
+      const testCmd = document.getElementById('pr-test-input').value.trim();
+
+      const c1 = document.getElementById('chk-single-scope').checked;
+      const c2 = document.getElementById('chk-unit-test').checked;
+      const c3 = document.getElementById('chk-ai-policy').checked;
+
+      let score = 25;
+      if (c1) score += 25;
+      if (c2) score += 25;
+      if (c3) score += 25;
+
+      const badge = document.getElementById('pr-score-badge');
+      badge.textContent = 'Score: ' + score + '%';
+      badge.className = score === 100
+        ? 'px-3 py-1.5 rounded-xl font-bold text-xs bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+        : 'px-3 py-1.5 rounded-xl font-bold text-xs bg-amber-500/20 text-amber-300 border border-amber-500/30';
+
+      const md =
+        '### Title: ' + title + '\n\n' +
+        'Fixes ' + issue + '\n\n' +
+        '### Summary of Changes\n' +
+        '- ' + summary + '\n\n' +
+        '### Verification & Unit Tests\n' +
+        '```bash\n' + testCmd + '\n```\n\n' +
+        '### Open-Source Etiquette Checklist\n' +
+        '- [' + (c1 ? 'x' : ' ') + '] Focused on a single issue with zero unrelated formatting noise\n' +
+        '- [' + (c2 ? 'x' : ' ') + '] Added/updated a unit test that fails before this change and passes after\n' +
+        '- [' + (c3 ? 'x' : ' ') + '] Complies with project CONTRIBUTING.md and AI-use policy';
+
+      document.getElementById('pr-markdown-output').textContent = md;
+
+      const gitCmds =
+        'git checkout -b ' + branch + '\n' +
+        'pytest\n' +
+        'git add -p\n' +
+        'git commit -m "' + title.replace(/"/g, '\\"') + '"\n' +
+        'git push origin ' + branch;
+
+      document.getElementById('git-cmds-output').textContent = gitCmds;
+    }
+
+    // Tab 3: Boilerplate Code Viewer
+    function selectBoilerplateFile(key) {
+      const viewer = document.getElementById('code-viewer-content');
+      viewer.textContent = BOILERPLATE_FILES[key] || '';
+      const map = {
+        backend_main: 'file-tab-backend',
+        backend_ai: 'file-tab-ai',
+        frontend_page: 'file-tab-frontend',
+        frontend_mw: 'file-tab-middleware',
+        setup_sh: 'file-tab-setup'
+      };
+      Object.keys(map).forEach(k => {
+        const btn = document.getElementById(map[k]);
+        if (k === key) {
+          btn.className = 'px-3 py-1.5 rounded-lg text-xs mono font-semibold bg-indigo-600 text-white';
+        } else {
+          btn.className = 'px-3 py-1.5 rounded-lg text-xs mono font-semibold bg-slate-800 text-slate-300 hover:bg-slate-700';
+        }
+      });
+    }
+
+    function copyElementText(elemId, toastMsg) {
+      const el = document.getElementById(elemId);
+      if (!el) return;
+      copyRawText(el.textContent, toastMsg);
+    }
+
+    function copyRawText(text, toastMsg) {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(() => {
+          showToast(toastMsg);
+        }).catch(() => {
+          fallbackCopy(text, toastMsg);
+        });
+      } else {
+        fallbackCopy(text, toastMsg);
+      }
+    }
+
+    function fallbackCopy(text, toastMsg) {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      document.body.appendChild(ta);
+      ta.select();
+      try {
+        document.execCommand('copy');
+        showToast(toastMsg);
+      } catch (e) {}
+      document.body.removeChild(ta);
+    }
+
+    // Initialize on load
+    window.addEventListener('DOMContentLoaded', () => {
+      updateApiBadge();
+      renderMessages();
+      updatePrBuilder();
+      selectBoilerplateFile('backend_main');
+    });
+  </script>
+</body>
+</html>
